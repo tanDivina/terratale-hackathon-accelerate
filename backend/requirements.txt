@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+elasticsearch
+google-generativeai
+
+pydantic
+python-dotenv
+google-cloud-texttospeech
+langchain-elasticsearch
+langchain
+langchain_google_genai
+sentence-transformers==2.7.0
+eland
+transformers
+torch
+tqdm
+Pillow

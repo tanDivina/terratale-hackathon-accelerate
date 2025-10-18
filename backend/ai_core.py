@@ -8,20 +8,30 @@ import asyncio
 
 # Correct, aliased imports to handle the library's namespace conflict
 import google.generativeai as standard_api_genai
-from google import genai as google_root_genai
 from google.genai import types
 from google.cloud import texttospeech
+import google.auth.credentials
+import google.oauth2.service_account
 
 # Import persona configurations
 from . import config
 
 # --- Configuration ---
 API_KEY = os.environ.get("GEMINI_API_KEY")
+GOOGLE_APPLICATION_CREDENTIALS_JSON = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+
 live_client = None
 tts_client = None
-if API_KEY:
+
+if GOOGLE_APPLICATION_CREDENTIALS_JSON:
+    info = json.loads(GOOGLE_APPLICATION_CREDENTIALS_JSON)
+    credentials = google.oauth2.service_account.Credentials.from_service_account_info(info)
+    standard_api_genai.configure(credentials=credentials)
+    live_client = standard_api_genai.Client(credentials=credentials)
+    tts_client = texttospeech.TextToSpeechClient(credentials=credentials)
+elif API_KEY:
     standard_api_genai.configure(api_key=API_KEY)
-    live_client = google_root_genai.Client(api_key=API_KEY)
+    live_client = standard_api_genai.Client(api_key=API_KEY)
     # This client uses standard Google Cloud authentication (not the API key)
     tts_client = texttospeech.TextToSpeechClient()
 

@@ -8,7 +8,7 @@ import asyncio
 
 # Correct, aliased imports to handle the library's namespace conflict
 import google.generativeai as standard_api_genai
-from google.genai import types
+from google.generativeai import types
 from google.cloud import texttospeech
 import google.auth.credentials
 import google.oauth2.service_account

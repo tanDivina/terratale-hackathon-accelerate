@@ -1,3 +1,12 @@
+import sys
+import google
+print("--- Python sys.path (from ai_core.py) ---")
+for path in sys.path:
+    print(path)
+print("--- google package location (from ai_core.py) ---")
+print(google.__path__)
+print("--- end of debug info (from ai_core.py) ---")
+
 """
 Core AI logic for TerraTale, generating dual text and audio responses.
 This version uses the successful aliased import pattern from our test script.

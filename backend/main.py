@@ -45,53 +45,27 @@ class QARequest(BaseModel):
 class ImageSearchRequest(BaseModel):
     query: str
 
-# --- WebSocket Manager ---
-class ConnectionManager:
-    def __init__(self):
-        self.mateo_session = None
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.mateo_session = ai_core.MateoAudioSession(client_websocket=websocket)
-
-    async def get_intent(self, query: str):
-        """Determines the user's intent using the Gemini API."""
-        model = genai.GenerativeModel('gemini-pro')
-        prompt = f"""Classify the user's intent as either 'question' or 'description'.
-
-        User query: '{query}'
-
-        Intent:"""
-        response = await model.generate_content_async(prompt)
-        return response.text.strip().lower()
-
-    async def process_query(self, query: str):
-        intent = await self.get_intent(query)
-
-        if intent == 'description':
-            results = image_search.search_images(query)
-            await self.mateo_session.client_websocket.send_text(json.dumps({"type": "image_search_results", "content": results}))
-        else: # Default to question
-            # The text and audio generation are now two separate, parallel tasks
-            async def text_task():
-                text_response = await ai_core.generate_text_response(query, ai_core.search_knowledge_base(query))
-                await self.mateo_session.client_websocket.send_text(json.dumps({"type": "text", "content": text_response}))
-
-            await asyncio.gather(
-                text_task(),
-                self.mateo_session.generate_and_stream_audio(query, ai_core.search_knowledge_base(query))
-            )
-
-manager = ConnectionManager()
-
 # --- Endpoints ---
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
+    await websocket.accept()
+    print("Websocket connected")
     try:
         while True:
             query = await websocket.receive_text()
-            await manager.process_query(query)
+            print(f"Received query: {query}")
+            
+            # The text and audio generation are now two separate, parallel tasks
+            async def text_task():
+                text_response = await ai_core.generate_text_response(query, ai_core.search_knowledge_base(query))
+                await websocket.send_text(json.dumps({"type": "text", "content": text_response}))
+
+            audio_session = ai_core.MateoAudioSession(websocket)
+            await asyncio.gather(
+                text_task(),
+                audio_session.generate_and_stream_audio(query, ai_core.search_knowledge_base(query))
+            )
+
     except WebSocketDisconnect:
         print("Client disconnected.")
 

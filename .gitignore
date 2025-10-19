@@ -11,3 +11,13 @@ __pycache__/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Local files
+gcp-credentials.json
+server.log
+test_output.txt
+backend/test_websocket.py
+
+# Data files
+data/
+unsplash-research-dataset-lite-1.2.0.zip

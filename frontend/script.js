@@ -123,6 +123,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function displayImages(images) {
         imageResultsArea.innerHTML = ''; // Clear previous results
+        if (images.length > 0) {
+            const identifiedName = images[0].fields.label ? images[0].fields.label[0] : "an unknown animal or plant";
+            const identificationDiv = document.createElement('div');
+            identificationDiv.innerHTML = `I think you saw a <strong>${identifiedName}</strong>! Here are some photos:`;
+            imageResultsArea.appendChild(identificationDiv);
+        }
         images.forEach(image => {
             const imgElement = document.createElement('img');
             imgElement.src = image.fields.photo_image_url[0];

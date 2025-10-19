@@ -56,6 +56,7 @@ def index_images():
                 "photo_id": {"type": "keyword"},
                 "photo_image_url": {"type": "keyword"},
                 "photo_description": {"type": "text"},
+                "label": {"type": "keyword"},
             }
         }
         if not es.indices.exists(index=INDEX_NAME):
@@ -74,6 +75,8 @@ def index_images():
     # Load the data
     df_unsplash = pd.read_csv("data/unsplash/photos.tsv000", sep="\t", header=0)
     df_unsplash.fillna("", inplace=True)
+    # Add a placeholder label column for now. User will replace this with actual labels.
+    df_unsplash["label"] = ""
 
     # Generate embeddings and index in batches
     batch_size = 50
@@ -95,6 +98,7 @@ def index_images():
                     "photo_id": data["photo_id"],
                     "photo_image_url": data["photo_image_url"],
                     "photo_description": data["photo_description"],
+                    "label": data["label"],
                     "image_embedding": image_features[j].cpu().numpy().tolist(),
                 }
             })
@@ -125,5 +129,5 @@ def search_images(query: str):
         "query_vector": query_embedding,
     }
 
-    response = es.search(index=INDEX_NAME, knn=knn_query, source=["photo_image_url", "photo_description"])
+    response = es.search(index=INDEX_NAME, knn=knn_query, source=["photo_image_url", "photo_description", "label"])
     return response.body["hits"]["hits"]

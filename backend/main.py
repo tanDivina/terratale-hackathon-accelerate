@@ -1,11 +1,4 @@
-import sys
-import google
-print("--- Python sys.path ---")
-for path in sys.path:
-    print(path)
-print("--- google package location ---")
-print(google.__path__)
-print("--- end of debug info ---")
+
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from pydantic import BaseModel

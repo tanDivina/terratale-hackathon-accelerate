@@ -1,15 +1,14 @@
 """
 Core AI logic for TerraTale, generating dual text and audio responses.
-This version uses the successful aliased import pattern from our test script.
+This version uses the modern google-genai Client pattern.
 """
 import os
 import json
 import asyncio
 
-# Correct, aliased imports to handle the library's namespace conflict
-import google.generativeai as standard_api_genai
-from google import genai as google_root_genai
+from google import genai
 from google.genai import types
+from google.genai.types import GenerateContentConfig
 from google.cloud import texttospeech
 import google.auth.credentials
 import google.oauth2.service_account
@@ -21,18 +20,16 @@ from . import config
 API_KEY = os.environ.get("GEMINI_API_KEY")
 GOOGLE_APPLICATION_CREDENTIALS_JSON = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON")
 
-live_client = None
+client = None
 tts_client = None
 
 if GOOGLE_APPLICATION_CREDENTIALS_JSON:
     info = json.loads(GOOGLE_APPLICATION_CREDENTIALS_JSON)
     credentials = google.oauth2.service_account.Credentials.from_service_account_info(info)
-    standard_api_genai.configure(credentials=credentials)
-    live_client = google_root_genai.Client(credentials=credentials)
+    client = genai.Client(credentials=credentials)
     tts_client = texttospeech.TextToSpeechClient(credentials=credentials)
 elif API_KEY:
-    standard_api_genai.configure(api_key=API_KEY)
-    live_client = google_root_genai.Client(api_key=API_KEY)
+    client = genai.Client(api_key=API_KEY)
     # This client uses standard Google Cloud authentication (not the API key)
     tts_client = texttospeech.TextToSpeechClient()
 
@@ -48,13 +45,18 @@ def search_knowledge_base(query: str) -> list:
     ]
 
 # --- Core AI Functions ---
-async def generate_text_response(query: str, context: list) -> str:
+def generate_text_response(query: str, context: list) -> str:
     print("Generating text response (Papito)...")
-    model = standard_api_genai.GenerativeModel(config.TEXT_MODEL_NAME)
-    model.system_instruction = config.TEXT_PERSONA_PROMPT
     context_str = "\n".join(context)
     full_prompt = f"Context:\n---\n{context_str}\n---\n\nQuestion: {query}"
-    response = await model.generate_content_async(full_prompt)
+    
+    response = client.models.generate_content(
+        model=config.TEXT_MODEL_NAME.replace("models/", ""),
+        contents=full_prompt,
+        config=GenerateContentConfig(
+            system_instruction=config.TEXT_PERSONA_PROMPT
+        ),
+    )
     return response.text
 
 def synthesize_papito_speech(text: str) -> bytes:
@@ -97,7 +99,7 @@ class MateoAudioSession:
         full_prompt = f"System Prompt: {system_prompt}\n\nContext:\n---\n{context_str}\n---\n\nQuestion: {query}"
 
         try:
-            async with live_client.aio.live.connect(
+            async with client.aio.live.connect(
                 model=config.AUDIO_MODEL_NAME,
                 config=types.LiveConnectConfig(response_modalities=["AUDIO"])
             ) as google_session:

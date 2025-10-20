@@ -1,111 +1,94 @@
-import sys
-import traceback
-import time
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+import asyncio
+import io
+import os
+import json
+from dotenv import load_dotenv
 
-try:
-    from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
-    from pydantic import BaseModel
-    from fastapi.staticfiles import StaticFiles
-    from fastapi.middleware.cors import CORSMiddleware
-    from fastapi.responses import StreamingResponse
-    import asyncio
-    import io
-    import os
-    import json
-    from dotenv import load_dotenv
+load_dotenv()
 
-    load_dotenv()
+from . import ai_core
+from . import qa_system
+from . import image_search
 
-    from . import ai_core
-    from . import qa_system
-    from . import image_search
+# --- App Setup ---
+app = FastAPI(title="Dual Response AI Assistant")
 
-    import google.generativeai as genai
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-    # --- App Setup ---
-    app = FastAPI(title="Dual Response AI Assistant")
+@app.on_event("startup")
+def startup_event():
+    # Load and index documents on startup
+    # qa_system.load_and_index_docs() # Disabled for now
+    # image_search.index_images() # Disabled for now
+    pass
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"], 
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+# --- API Models ---
+class SynthesizeRequest(BaseModel):
+    text: str
 
-    @app.on_event("startup")
-    def startup_event():
-        # Load and index documents on startup
-        # qa_system.load_and_index_docs() # Disabled for now
-        # image_search.index_images() # Disabled for now
-        pass
+class QARequest(BaseModel):
+    question: str
 
-    # --- API Models ---
-    class SynthesizeRequest(BaseModel):
-        text: str
+class ImageSearchRequest(BaseModel):
+    query: str
 
-    class QARequest(BaseModel):
-        question: str
+# --- Endpoints ---
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    print("Websocket connected")
+    try:
+        while True:
+            query = await websocket.receive_text()
+            print(f"Received query: {query}")
 
-    class ImageSearchRequest(BaseModel):
-        query: str
+            # Generate and send the text response
+            text_response = ai_core.generate_text_response(query, ai_core.search_knowledge_base(query))
+            await websocket.send_text(json.dumps({"type": "text", "content": text_response}))
 
-    # --- Endpoints ---
-    @app.websocket("/ws")
-    async def websocket_endpoint(websocket: WebSocket):
-        await websocket.accept()
-        print("Websocket connected")
-        try:
-            while True:
-                query = await websocket.receive_text()
-                print(f"Received query: {query}")
+            # Generate and stream the audio response
+            audio_session = ai_core.MateoAudioSession(websocket)
+            await audio_session.generate_and_stream_audio(query, ai_core.search_knowledge_base(query))
 
-                # The text and audio generation are now two separate, parallel tasks
-                async def text_task():
-                    text_response = await ai_core.generate_text_response(query, ai_core.search_knowledge_base(query))
-                    await websocket.send_text(json.dumps({"type": "text", "content": text_response}))
+    except WebSocketDisconnect:
+        print("Client disconnected.")
 
-                audio_session = ai_core.MateoAudioSession(websocket)
-                await asyncio.gather(
-                    text_task(),
-                    audio_session.generate_and_stream_audio(query, ai_core.search_knowledge_base(query))
-                )
+@app.post("/synthesize")
+async def synthesize_text(request: SynthesizeRequest):
+    try:
+        audio_bytes = ai_core.synthesize_papito_speech(request.text)
+        return StreamingResponse(io.BytesIO(audio_bytes), media_type="audio/mpeg")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-        except WebSocketDisconnect:
-            print("Client disconnected.")
+@app.post("/qa")
+async def qa_endpoint(request: QARequest):
+    try:
+        qa_chain = qa_system.create_qa_chain()
+        answer = qa_chain.invoke(request.question)
+        return {"answer": answer}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/synthesize")
-    async def synthesize_text(request: SynthesizeRequest):
-        try:
-            audio_bytes = ai_core.synthesize_papito_speech(request.text)
-            return StreamingResponse(io.BytesIO(audio_bytes), media_type="audio/mpeg")
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+@app.post("/image-search")
+async def image_search_endpoint(request: ImageSearchRequest):
+    try:
+        results = image_search.search_images(request.query)
+        return {"results": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/qa")
-    async def qa_endpoint(request: QARequest):
-        try:
-            qa_chain = qa_system.create_qa_chain()
-            answer = qa_chain.invoke(request.question)
-            return {"answer": answer}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-
-    @app.post("/image-search")
-    async def image_search_endpoint(request: ImageSearchRequest):
-        try:
-            results = image_search.search_images(request.query)
-            return {"results": results}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-
-    # --- Static Files ---
-    frontend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend"))
-    app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="static")
-
-except Exception as e:
-    print("--- FATAL ERROR DURING STARTUP ---")
-    print(e)
-    traceback.print_exc()
-    time.sleep(60) # Give logs time to be sent
-    sys.exit(1)
+# --- Static Files ---
+frontend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend"))
+app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="static")

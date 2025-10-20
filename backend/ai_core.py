@@ -1,24 +1,14 @@
-import sys
-import google
-print("--- Python sys.path (from ai_core.py) ---")
-for path in sys.path:
-    print(path)
-print("--- google package location (from ai_core.py) ---")
-print(google.__path__)
-print("--- end of debug info (from ai_core.py) ---")
-
-"""
-Core AI logic for TerraTale, generating dual text and audio responses.
+"Core AI logic for TerraTale, generating dual text and audio responses.
 This version uses the successful aliased import pattern from our test script.
-"""
+"
 import os
 import json
 import asyncio
 
 # Correct, aliased imports to handle the library's namespace conflict
 import google.generativeai as standard_api_genai
-from google.generativeai import types
-from google.generativeai.client import Client
+from google import genai as google_root_genai
+from google.genai import types
 from google.cloud import texttospeech
 import google.auth.credentials
 import google.oauth2.service_account
@@ -37,11 +27,11 @@ if GOOGLE_APPLICATION_CREDENTIALS_JSON:
     info = json.loads(GOOGLE_APPLICATION_CREDENTIALS_JSON)
     credentials = google.oauth2.service_account.Credentials.from_service_account_info(info)
     standard_api_genai.configure(credentials=credentials)
-    live_client = Client(credentials=credentials)
+    live_client = google_root_genai.Client(credentials=credentials)
     tts_client = texttospeech.TextToSpeechClient(credentials=credentials)
 elif API_KEY:
     standard_api_genai.configure(api_key=API_KEY)
-    live_client = Client(api_key=API_KEY)
+    live_client = google_root_genai.Client(api_key=API_KEY)
     # This client uses standard Google Cloud authentication (not the API key)
     tts_client = texttospeech.TextToSpeechClient()
 

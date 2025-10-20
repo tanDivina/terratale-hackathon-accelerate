@@ -1,6 +1,7 @@
-"Core AI logic for TerraTale, generating dual text and audio responses.
+"""
+Core AI logic for TerraTale, generating dual text and audio responses.
 This version uses the successful aliased import pattern from our test script.
-"
+"""
 import os
 import json
 import asyncio

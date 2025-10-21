@@ -5,6 +5,9 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
+# Install system dependencies for mysqlclient
+RUN apt-get update && apt-get install -y default-libmysqlclient-dev pkg-config gcc
+
 # Set the working directory in the container
 WORKDIR /app
 

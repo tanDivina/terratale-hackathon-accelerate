@@ -10,12 +10,12 @@ import torch
 from huggingface_hub import login
 
 # Log in to Hugging Face Hub
-hf_token = os.environ.get("HF_TOKEN")
+hf_token = os.environ.get("HUGGING_FACE_HUB_TOKEN") # Changed from HF_TOKEN
 if hf_token:
     login(token=hf_token)
     print("Successfully logged in to Hugging Face Hub.")
 else:
-    print("HF_TOKEN not found in environment variables. Anonymous access to Hugging Face Hub.")
+    print("HUGGING_FACE_HUB_TOKEN not found in environment variables. Anonymous access to Hugging Face Hub.")
 
 # --- Configuration ---
 ELASTIC_API_KEY = os.environ.get("ELASTIC_API_KEY")
@@ -26,7 +26,7 @@ MODEL_NAME = "openai/clip-vit-base-patch32"
 # --- Model Loading ---
 # Load the model and processor only once
 device = "cuda" if torch.cuda.is_available() else "cpu"
-hf_token = os.environ.get("HF_TOKEN") # Read the token again
+hf_token = os.environ.get("HUGGING_FACE_HUB_TOKEN") # Read the token again, changed from HF_TOKEN
 model = CLIPModel.from_pretrained(MODEL_NAME, token=hf_token).to(device)
 processor = CLIPProcessor.from_pretrained(MODEL_NAME, token=hf_token)
 

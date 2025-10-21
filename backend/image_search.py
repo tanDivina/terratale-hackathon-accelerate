@@ -7,6 +7,15 @@ from elasticsearch import Elasticsearch
 from elasticsearch.helpers import parallel_bulk
 from transformers import CLIPProcessor, CLIPModel
 import torch
+from huggingface_hub import login
+
+# Log in to Hugging Face Hub
+hf_token = os.environ.get("HF_TOKEN")
+if hf_token:
+    login(token=hf_token)
+    print("Successfully logged in to Hugging Face Hub.")
+else:
+    print("HF_TOKEN not found in environment variables. Anonymous access to Hugging Face Hub.")
 
 # --- Configuration ---
 ELASTIC_API_KEY = os.environ.get("ELASTIC_API_KEY")

@@ -26,8 +26,9 @@ MODEL_NAME = "openai/clip-vit-base-patch32"
 # --- Model Loading ---
 # Load the model and processor only once
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model = CLIPModel.from_pretrained(MODEL_NAME).to(device)
-processor = CLIPProcessor.from_pretrained(MODEL_NAME)
+hf_token = os.environ.get("HF_TOKEN") # Read the token again
+model = CLIPModel.from_pretrained(MODEL_NAME, token=hf_token).to(device)
+processor = CLIPProcessor.from_pretrained(MODEL_NAME, token=hf_token)
 
 # --- Elasticsearch Client ---
 def get_es_client():
